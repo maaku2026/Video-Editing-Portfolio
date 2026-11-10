@@ -1,0 +1,85 @@
+import { useEffect, useState } from 'react'
+import { AnimatePresence, motion, useInView } from 'framer-motion'
+import { useRef } from 'react'
+import { EASE } from '../lib/motion'
+import { still } from '../lib/data'
+
+type StillProps = {
+  seeds: string[]
+  className?: string
+  playing?: boolean
+  interval?: number
+  width?: number
+  height?: number
+}
+
+/** A still-image "clip" that cycles frames, used as stand-in footage. */
+export function FilmStill({
+  seeds,
+  className = '',
+  playing = true,
+  interval = 2400,
+  width = 1600,
+  height = 900,
+}: StillProps) {
+  const [index, setIndex] = useState(0)
+
+  useEffect(() => {
+    if (!playing || seeds.length < 2) return
+    const id = window.setInterval(() => {
+      setIndex((value) => (value + 1) % seeds.length)
+    }, interval)
+    return () => window.clearInterval(id)
+  }, [playing, interval, seeds.length])
+
+  const seed = seeds[index % seeds.length]
+
+  return (
+    <div className={`still ${className}`}>
+      <AnimatePresence initial={false}>
+        <motion.div
+          key={seed}
+          className="still__layer"
+          style={{ backgroundImage: `url(${still(seed, width, height)})` }}
+          initial={{ opacity: 0, scale: 1.04 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 1.1, ease: EASE }}
+        />
+      </AnimatePresence>
+    </div>
+  )
+}
+
+type CounterProps = {
+  to: number
+  suffix?: string
+  duration?: number
+}
+
+export function Counter({ to, suffix = '', duration = 1800 }: CounterProps) {
+  const ref = useRef<HTMLSpanElement>(null)
+  const inView = useInView(ref, { once: true, margin: '-15% 0px' })
+  const [value, setValue] = useState(0)
+
+  useEffect(() => {
+    if (!inView) return
+    let frame = 0
+    const start = performance.now()
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - start) / duration)
+      const eased = 1 - Math.pow(1 - progress, 3)
+      setValue(Math.round(to * eased))
+      if (progress < 1) frame = requestAnimationFrame(tick)
+    }
+    frame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frame)
+  }, [inView, to, duration])
+
+  return (
+    <span ref={ref}>
+      {value}
+      {suffix}
+    </span>
+  )
+}
